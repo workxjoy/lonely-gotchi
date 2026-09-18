@@ -72,6 +72,8 @@ interface CallResources {
   /** Last ~0.4 s of mic audio before a push-to-talk press, so the first word isn't clipped. */
   preRoll: ArrayBuffer[];
   lastLevelAt: number;
+  turnStartedAt: number;
+  turnMaxLevel: number;
   baseInstructions?: string;
   spokenLang: SpokenLang;
   /** A pending non-English detection waiting for a second confirming turn. */
@@ -103,6 +105,8 @@ const freshResources = (): CallResources => ({
   pttHeld: false,
   preRoll: [],
   lastLevelAt: 0,
+  turnStartedAt: 0,
+  turnMaxLevel: 0,
   spokenLang: "en",
   replyAfterTranscript: false,
   responseActive: false,
@@ -121,6 +125,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [hint, setHint] = useState<string | null>(null);
 
   const res = useRef<CallResources>(freshResources());
   const linesRef = useRef<CaptionLine[]>([]);
@@ -345,6 +350,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
                   r.lastLevelAt = now;
                   setMicLevel(level);
                 }
+                if (r.pttHeld) r.turnMaxLevel = Math.max(r.turnMaxLevel, level);
                 if (r.pushToTalk && !r.pttHeld) {
                   // Not streaming, but keep a short pre-roll for the next press.
                   r.preRoll.push(pcm);
@@ -647,6 +653,9 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     send({ type: "input_audio_buffer.clear" });
     for (const chunk of r.preRoll) send({ type: "input_audio_buffer.append", audio: bytesToBase64(chunk) });
     r.preRoll = [];
+    r.turnStartedAt = performance.now();
+    r.turnMaxLevel = 0;
+    setHint(null);
     r.pttHeld = true;
     setUserSpeaking(true);
   }, [send, upsertLine]);
@@ -657,6 +666,19 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     if (!r.pttHeld) return;
     r.pttHeld = false;
     setUserSpeaking(false);
+    // Never send silence: STT hallucinates on it (e.g. random Chinese phrases) and the reply is nonsense.
+    const tooShort = performance.now() - r.turnStartedAt < 400;
+    const noVoice = r.turnMaxLevel < 0.012;
+    if (tooShort || noVoice) {
+      send({ type: "input_audio_buffer.clear" });
+      setHint(
+        noVoice
+          ? "Didn't catch any voice. Speak closer to the mic, or check the mic in the address bar."
+          : "Too short. Keep talking until you're done, then tap or let go.",
+      );
+      setTimeout(() => setHint(null), 5000);
+      return;
+    }
     // Let the last audio chunk (up to 40 ms) flush before committing.
     setTimeout(() => {
       send({ type: "input_audio_buffer.commit" });
@@ -701,6 +723,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     userSpeaking,
     thinking,
     micLevel,
+    hint,
     start,
     hangUp,
     sendText,

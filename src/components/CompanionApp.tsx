@@ -95,6 +95,7 @@ export function CompanionApp({ userName }: { userName: string }) {
           onSend={call.sendText}
           pushToTalk={pushToTalk}
           micLevel={call.micLevel}
+          hint={call.hint}
           onTalkStart={() => {
             if (clipSrc) endClip(); // talking skips the greeting
             call.pttStart();

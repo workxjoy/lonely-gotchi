@@ -18,6 +18,7 @@ interface Props {
   avatar?: ReactNode;
   pushToTalk: boolean;
   micLevel: number;
+  hint: string | null;
   onTalkStart: () => void;
   onTalkEnd: () => void;
 }
@@ -51,6 +52,7 @@ export function CallPanel({
   avatar,
   pushToTalk,
   micLevel,
+  hint,
   onTalkStart,
   onTalkEnd,
 }: Props) {
@@ -62,6 +64,30 @@ export function CallPanel({
 
   const inCall = status === "connecting" || status === "live";
 
+  // Tap once to start and again to send, or hold and let go: both work.
+  const pressedAt = useRef(0);
+  const talkDown = () => {
+    if (userSpeaking) {
+      onTalkEnd(); // second tap sends
+      pressedAt.current = 0;
+      return;
+    }
+    pressedAt.current = performance.now();
+    onTalkStart();
+  };
+  const talkUp = () => {
+    if (!pressedAt.current) return;
+    const held = performance.now() - pressedAt.current;
+    pressedAt.current = 0;
+    if (held > 350) onTalkEnd(); // it was a hold: release sends
+  };
+  const talkDownRef = useRef(talkDown);
+  const talkUpRef = useRef(talkUp);
+  useEffect(() => {
+    talkDownRef.current = talkDown;
+    talkUpRef.current = talkUp;
+  });
+
   // Space bar = hold to talk (ignored while typing in the message box).
   useEffect(() => {
     if (!pushToTalk || status !== "live") return;
@@ -69,12 +95,12 @@ export function CallPanel({
     const down = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat || typing(e)) return;
       e.preventDefault();
-      onTalkStart();
+      talkDownRef.current();
     };
     const up = (e: KeyboardEvent) => {
       if (e.code !== "Space" || typing(e)) return;
       e.preventDefault();
-      onTalkEnd();
+      talkUpRef.current();
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -82,7 +108,7 @@ export function CallPanel({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [pushToTalk, status, onTalkStart, onTalkEnd]);
+  }, [pushToTalk, status]);
 
   return (
     <section className="flex h-full flex-col rounded-3xl bg-[var(--card)] p-5">
@@ -124,8 +150,10 @@ export function CallPanel({
               />
             </span>
           </span>
-          {pushToTalk && !userSpeaking && !aiSpeaking && !thinking
-            ? "Hold the button (or Space) while you talk, then let go."
+          {hint
+            ? hint
+            : pushToTalk && !userSpeaking && !aiSpeaking && !thinking
+            ? "Tap to start talking, tap again to send (or hold and let go)."
             : liveHint(aiSpeaking, userSpeaking, thinking)}
         </p>
       )}
@@ -170,15 +198,15 @@ export function CallPanel({
           type="button"
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
-            onTalkStart();
+            talkDown();
           }}
-          onPointerUp={onTalkEnd}
-          onPointerCancel={onTalkEnd}
+          onPointerUp={talkUp}
+          onPointerCancel={talkUp}
           className={`mt-4 w-full select-none rounded-2xl py-4 text-lg font-semibold transition ${
             userSpeaking ? "bg-[#7dd3a8] text-[#10261b]" : "bg-[var(--card-strong)] text-[var(--foreground)] hover:brightness-125"
           }`}
         >
-          {userSpeaking ? "Listening... let go to send" : "Hold to talk"}
+          {userSpeaking ? "Listening... tap (or let go) to send" : "Tap or hold to talk"}
         </button>
       )}
 
