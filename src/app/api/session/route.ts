@@ -71,7 +71,7 @@ export async function POST(request: Request) {
               : { type: "server_vad", threshold: 0.6, prefix_padding_ms: 800, silence_duration_ms: 700 },
             transcription:
               language === "hi" || language === "zh" ? { model: "higgs-stt-3.1", language } : { model: "higgs-stt-3.1" },
-            noise_reduction: { type: "near_field" },
+            noise_reduction: { type: "far_field" }, // laptop mics; near_field stripped distant voices
           },
           output: {
             format: { type: "audio/pcm", rate: 24000 },

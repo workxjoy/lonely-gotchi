@@ -71,6 +71,9 @@ interface CallResources {
   language?: LanguageMode;
   pushToTalk: boolean;
   pttHeld: boolean;
+  /** Last ~0.4 s of mic audio before a push-to-talk press, so the first word isn't clipped. */
+  preRoll: ArrayBuffer[];
+  lastLevelAt: number;
   baseInstructions?: string;
   spokenLang: SpokenLang;
   /** A pending non-English detection waiting for a second confirming turn. */
@@ -100,6 +103,8 @@ const freshResources = (): CallResources => ({
   legReady: false,
   pushToTalk: false,
   pttHeld: false,
+  preRoll: [],
+  lastLevelAt: 0,
   spokenLang: "en",
   replyAfterTranscript: false,
   responseActive: false,
@@ -117,6 +122,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
 
   const res = useRef<CallResources>(freshResources());
   const linesRef = useRef<CaptionLine[]>([]);
@@ -215,6 +221,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     setAiSpeaking(false);
     setUserSpeaking(false);
     setThinking(false);
+    setMicLevel(0);
   }, [observe]);
 
   const fail = useCallback(
@@ -334,9 +341,20 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           if (!r.stopMic) {
             try {
               const stopMic = await startMic(r.ctx, (pcm) => {
-                if (r.pushToTalk && !r.pttHeld) return; // push to talk: only stream while the button is held
+                const level = rmsLevel(pcm);
+                const now = performance.now();
+                if (now - r.lastLevelAt > 120) {
+                  r.lastLevelAt = now;
+                  setMicLevel(level);
+                }
+                if (r.pushToTalk && !r.pttHeld) {
+                  // Not streaming, but keep a short pre-roll for the next press.
+                  r.preRoll.push(pcm);
+                  if (r.preRoll.length > 10) r.preRoll.shift();
+                  return;
+                }
                 const echoOnly =
-                  (!r.pushToTalk && r.greetingPlaying) || (!r.pushToTalk && r.player?.active && rmsLevel(pcm) < BARGE_IN_LEVEL);
+                  (!r.pushToTalk && r.greetingPlaying) || (!r.pushToTalk && r.player?.active && level < BARGE_IN_LEVEL);
                 const audio = echoOnly ? new ArrayBuffer(pcm.byteLength) : pcm;
                 send({ type: "input_audio_buffer.append", audio: bytesToBase64(audio) });
               });
@@ -629,6 +647,8 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     r.speakingItemId = undefined;
     r.greetingPlaying = false;
     send({ type: "input_audio_buffer.clear" });
+    for (const chunk of r.preRoll) send({ type: "input_audio_buffer.append", audio: bytesToBase64(chunk) });
+    r.preRoll = [];
     r.pttHeld = true;
     setUserSpeaking(true);
   }, [send, upsertLine]);
@@ -675,5 +695,19 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     };
   }, [teardown]);
 
-  return { status, error, lines, aiSpeaking, userSpeaking, thinking, start, hangUp, sendText, greetingFinished, pttStart, pttEnd };
+  return {
+    status,
+    error,
+    lines,
+    aiSpeaking,
+    userSpeaking,
+    thinking,
+    micLevel,
+    start,
+    hangUp,
+    sendText,
+    greetingFinished,
+    pttStart,
+    pttEnd,
+  };
 }

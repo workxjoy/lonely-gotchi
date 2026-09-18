@@ -17,6 +17,7 @@ interface Props {
   /** Face shown beside the captions (video-call layout). */
   avatar?: ReactNode;
   pushToTalk: boolean;
+  micLevel: number;
   onTalkStart: () => void;
   onTalkEnd: () => void;
 }
@@ -49,6 +50,7 @@ export function CallPanel({
   onSend,
   avatar,
   pushToTalk,
+  micLevel,
   onTalkStart,
   onTalkEnd,
 }: Props) {
@@ -113,6 +115,15 @@ export function CallPanel({
           <span
             className={`h-2.5 w-2.5 rounded-full ${userSpeaking ? "bg-[#7dd3a8] animate-pulse" : aiSpeaking ? "bg-[var(--accent)] animate-pulse" : "bg-[#7dd3a8]"}`}
           />
+          <span className="ml-auto flex items-center gap-1 text-xs" title="Mic level">
+            mic
+            <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[#3a3346]">
+              <span
+                className={`block h-full rounded-full ${micLevel > 0.02 ? "bg-[#7dd3a8]" : "bg-[#6b6474]"}`}
+                style={{ width: `${Math.min(100, Math.round(micLevel * 600))}%` }}
+              />
+            </span>
+          </span>
           {pushToTalk && !userSpeaking && !aiSpeaking && !thinking
             ? "Hold the button (or Space) while you talk, then let go."
             : liveHint(aiSpeaking, userSpeaking, thinking)}
