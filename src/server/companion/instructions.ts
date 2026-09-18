@@ -74,6 +74,15 @@ const LANGUAGE_RULE: Record<LanguageMode, string> = {
   zh: "Always speak Mandarin Chinese (普通话), warm and natural. Never switch to English unless they explicitly ask.",
 };
 
+// Repeated at the very end of the prompt: the model weighs the last instruction most, and a rule at the top
+// alone lost to the English persona text and memories (it drifted back to English mid-call).
+const FINAL_LANGUAGE_LOCK: Record<LanguageMode, string> = {
+  auto: "",
+  en: "\n\nLANGUAGE LOCK: reply ONLY in English in every turn, even if the user uses another language.",
+  hi: "\n\nLANGUAGE LOCK: reply ONLY in Hindi (हिन्दी, Devanagari) in every turn, even if the user speaks or types English. Everyday English words inside a Hindi sentence (Hinglish) are fine; whole English sentences are not.",
+  zh: "\n\nLANGUAGE LOCK: reply ONLY in Mandarin Chinese in every turn.",
+};
+
 export function buildInstructions(
   persona: Persona,
   context: CompanionContext,
@@ -103,5 +112,5 @@ ${userName ? `Their name is ${userName}. Use it naturally, not in every sentence
 Sound like a real human who knows them intimately. No cliches, no generic quotes, no lists.
 
 ${greetedWith ? `You already opened the call out loud with: "${greetedWith}" Do not greet again. Wait for their answer and respond to it.\n\n` : ""}WHAT YOU KNOW ABOUT THEM (only from your own past calls with them as their ${persona.name}; the other companions have their own):
-${describeHistory(context, Boolean(handoff))}${handoff ? `\n\n${describeHandoff(persona, handoff)}` : ""}`;
+${describeHistory(context, Boolean(handoff))}${handoff ? `\n\n${describeHandoff(persona, handoff)}` : ""}${FINAL_LANGUAGE_LOCK[language]}`;
 }

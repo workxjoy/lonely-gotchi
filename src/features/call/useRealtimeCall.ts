@@ -153,6 +153,20 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   }, []);
 
+  /**
+   * Ask for a reply. In Hindi or English mode (or Auto once Hindi was detected) a hidden one-line note goes
+   * first: the model weighs the latest item most, and prompt rules alone let it drift back to English.
+   */
+  const requestReply = useCallback(() => {
+    const r = res.current;
+    const lang = r.language === "auto" ? (r.spokenLang === "hi" ? "hi" : undefined) : r.language;
+    const note = lang === "hi" ? "(Reply only in Hindi, in Devanagari.)" : lang === "en" ? "(Reply only in English.)" : null;
+    if (note) {
+      send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: note }] } });
+    }
+    send({ type: "response.create" });
+  }, [send]);
+
   /** Auto language: if the user switched script (e.g. to Chinese), switch the companion's language too. */
   const followLanguage = useCallback(
     (text: string): boolean => {
@@ -326,9 +340,9 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify({ ok: false }) },
         });
       }
-      send({ type: "response.create" });
+      requestReply();
     },
-    [handOff, send],
+    [handOff, requestReply, send],
   );
 
   const handleEvent = useCallback(
@@ -377,7 +391,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           // The companion is the one calling (or just joined), so it speaks first,
           // unless the avatar greeting clip is already saying hello on the first leg.
           if (r.greetedWith) r.greetedWith = undefined;
-          else send({ type: "response.create" });
+          else requestReply();
           return;
         }
         case "input_audio_buffer.speech_started": {
@@ -399,7 +413,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           return;
         case "conversation.item.added":
           // Placeholder bubble for the user's spoken turn; text arrives with the transcription event.
-          if (event.item?.role === "user" && event.item.id) {
+          if (event.item?.role === "user" && event.item.id && !event.item.content?.some((c) => c.type === "input_text")) {
             const id = event.item.id;
             upsertLine(id, (prev) => prev ?? { id, role: "user", text: "", final: false });
           }
@@ -432,11 +446,11 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
               }
               r.speakingItemId = undefined;
               send({ type: "response.cancel" });
-              send({ type: "response.create" });
+              requestReply();
             }
             if (r.replyAfterTranscript) {
               r.replyAfterTranscript = false;
-              send({ type: "response.create" });
+              requestReply();
             }
             upsertLine(id, () => ({ id, role: "user", text, final: true }));
             // Higgs can refine a transcript for the same item; only the last version goes to the Listener.
@@ -509,7 +523,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           return;
       }
     },
-    [cutOff, fail, followLanguage, observe, runToolCalls, send, upsertLine],
+    [cutOff, fail, followLanguage, observe, requestReply, runToolCalls, send, upsertLine],
   );
 
   const connectLeg = useCallback(
@@ -629,11 +643,11 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
       followLanguage(clean);
       setLines((prev) => [...prev, { id: `typed-${Date.now()}`, role: "user", text: clean, final: true }]);
       send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: clean }] } });
-      send({ type: "response.create" });
+      requestReply();
       setThinking(true);
       observe(clean, r.personaId ?? "");
     },
-    [cutOff, followLanguage, observe, send],
+    [cutOff, followLanguage, observe, requestReply, send],
   );
 
   /** Push to talk: start a turn. Talking over the companion interrupts it. */
@@ -692,13 +706,13 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
         setTimeout(() => {
           if (!r.replyAfterTranscript) return;
           r.replyAfterTranscript = false;
-          send({ type: "response.create" });
+          requestReply();
         }, 1500);
       } else {
-        send({ type: "response.create" });
+        requestReply();
       }
     }, 60);
-  }, [send]);
+  }, [requestReply, send]);
 
   /** Called when the avatar greeting clip ends (or fails), un-muting the mic. */
   const greetingFinished = useCallback(() => {

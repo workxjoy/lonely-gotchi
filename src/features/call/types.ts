@@ -20,7 +20,7 @@ export interface ServerEvent {
   item_id?: string;
   delta?: string;
   transcript?: string;
-  item?: { id?: string; role?: string; type?: string };
+  item?: { id?: string; role?: string; type?: string; content?: Array<{ type: string }> };
   error?: { message?: string; type?: string };
   response?: {
     output?: Array<{ type: string; call_id?: string; name?: string; arguments?: string }>;
