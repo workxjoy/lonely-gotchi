@@ -4,6 +4,12 @@
 
 Loneliness affects 1 in 6 people worldwide and is linked to more than 871,000 deaths a year ([WHO, 2025](https://www.who.int/news/item/30-06-2025-social-connection-linked-to-improved-heath-and-reduced-risk-of-early-death)). Affirmation apps send generic quotes; they don't listen, don't remember, and don't talk back. lonely-gotchi is a live voice call with the version of you that you need tonight, and it is designed to nudge you toward real people instead of replacing them.
 
+## Demo video
+
+[![Watch the lonely-gotchi demo](docs/demo/thumbnail.jpg)](docs/demo/lonely-gotchi-demo.mp4)
+
+**[Watch the demo (3 min)](docs/demo/lonely-gotchi-demo.mp4)**: sign up, call a companion with a lip-synced avatar greeting, talk and interrupt, Inner Council handoff, Hindi, and the dashboard.
+
 Built in one day at *Build an AI Startup in One Day* with **Boson AI Higgs** (Realtime, Avatar, TTS, STT) and **InstaCloud**.
 
 ## Team
