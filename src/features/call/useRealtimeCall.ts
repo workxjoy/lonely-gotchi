@@ -411,6 +411,7 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           }
           return;
         case "conversation.item.input_audio_transcription.completed":
+          console.warn("[mic] transcript", JSON.stringify(event.transcript));
           if (event.item_id) {
             const id = event.item_id;
             const text = (event.transcript ?? "").trim();
@@ -667,8 +668,10 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     r.pttHeld = false;
     setUserSpeaking(false);
     // Never send silence: STT hallucinates on it (e.g. random Chinese phrases) and the reply is nonsense.
-    const tooShort = performance.now() - r.turnStartedAt < 400;
+    const heldMs = Math.round(performance.now() - r.turnStartedAt);
+    const tooShort = heldMs < 400;
     const noVoice = r.turnMaxLevel < 0.012;
+    console.warn("[mic] turn", { heldMs, peakLevel: Number(r.turnMaxLevel.toFixed(4)), sent: !(tooShort || noVoice) });
     if (tooShort || noVoice) {
       send({ type: "input_audio_buffer.clear" });
       setHint(
