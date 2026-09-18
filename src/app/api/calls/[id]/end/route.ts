@@ -26,15 +26,17 @@ export async function POST(request: Request, ctx: RouteContext<"/api/calls/[id]/
   if (!Number.isInteger(callId) || !parsed.success) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
+  let persona: string | null = null;
   const lines = parsed.data.lines.filter((l) => l.text.trim()).map((l) => ({ ...l, text: redactAbuse(l.text) }));
   try {
-    if (!(await endCall(user.id, callId, lines, parsed.data.usage))) return Response.json({ ok: false }, { status: 404 });
+    persona = await endCall(user.id, callId, lines, parsed.data.usage);
+    if (!persona) return Response.json({ ok: false }, { status: 404 });
   } catch (err) {
     console.error("[calls:end]", err);
     return Response.json({ ok: false }, { status: 500 });
   }
   try {
-    await summarizeCall(user.id, callId, lines);
+    await summarizeCall(user.id, callId, lines, persona);
   } catch (err) {
     // The call and transcript are saved; don't leave the dashboard waiting on a summary forever.
     console.error("[calls:summarize]", err);

@@ -45,7 +45,7 @@ Also:
 - **Accounts**: email and password sign-up with Better Auth; users, hashed passwords and sessions live in InstaCloud Postgres. Every mood, memory and reach-out draft belongs to the signed-in user.
 - **SaaS layout**: sidebar navigation with **Call** and **Dashboard**; the dashboard shows check-in stats, a mood chart, memories, drafts and full history.
 - **Avatar greeting**: each call opens with a lip-synced Higgs Avatar clip, then the face stays on screen during the live call.
-- **Memory across calls**: the next call opens by referencing what you shared before.
+- **Separate memory per companion**: the Loving Partner, Sassy Best Friend and Fairy Godmother each keep their own context (calls, what helped, moods, memories, reach-out drafts); the next call with the same companion picks up where you left off. The dashboard shows all of it, labeled by companion.
 - **Push to talk or hands-free**: tap once to talk and again to send (or hold the button or Space), which is reliable in noisy rooms, or talk hands-free with natural turn-taking and barge-in. Typed messages also get spoken replies.
 - **Automatic language following**: in Auto mode the app detects Hindi (Devanagari) in what you say and switches the companion's language mid-call; one unclear phrase can't flip it. Speech-to-text is hinted to English or Hindi so unclear audio isn't misheard as another language. Boson rejects mid-call system messages, so the switch is a `session.update`.
 - **Gotchi**: a little face whose color and expression follow your latest mood, next to a mood timeline.
@@ -164,7 +164,7 @@ Use Chrome and headphones.
 ```bash
 npm run smoke:realtime              # voice session + Listener, text driven
 node scripts/smoke-council.mjs      # Bridge draft + Inner Council handoff end to end
-node scripts/smoke-learning.mjs     # call log -> summary + what helped -> next call remembers
+node scripts/smoke-learning.mjs     # call log -> summary + what helped -> same companion remembers, others don't
 npx tsc --noEmit && npm run lint
 ```
 

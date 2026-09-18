@@ -22,7 +22,11 @@ console.log("call ended + summarized:", ended.status, ended.body);
 const mood = await post("/api/observe", { text: "I feel good today, honestly.", personaId: "loving-partner" });
 console.log("listener on 'I feel good today':", mood.body.actions.map((a) => `${a.name}${a.args?.mood ? `(${a.args.mood})` : ""}`).join(", ") || "none");
 
-const next = await post("/api/session", { personaId: "sassy-best-friend" });
-const prompt = next.body.session.instructions;
-const section = prompt.slice(prompt.indexOf("Your last calls"), prompt.indexOf("Your last calls") + 600);
-console.log("\nnext call's prompt includes:\n" + (prompt.includes("Your last calls") ? section : "NO CALL MEMORY"));
+// Per-persona memory: the Loving Partner remembers this call, the Sassy Best Friend does not.
+const same = (await post("/api/session", { personaId: "loving-partner" })).body.session.instructions;
+const other = (await post("/api/session", { personaId: "sassy-best-friend" })).body.session.instructions;
+const knows = (prompt) => /pottery|blue mug/i.test(prompt);
+console.log("\nLoving Partner remembers the pottery call:", knows(same));
+console.log("Sassy Best Friend knows about it (should be false):", knows(other));
+const section = same.slice(same.indexOf("Your last calls"), same.indexOf("Your last calls") + 400);
+console.log("\nLoving Partner's memory section:\n" + (same.includes("Your last calls") ? section : "NO CALL MEMORY"));

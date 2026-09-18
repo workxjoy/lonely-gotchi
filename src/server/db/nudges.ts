@@ -38,13 +38,14 @@ export async function insertNudge(
   return rows[0] ? toEntry(rows[0]) : null;
 }
 
-export async function listRecentNudges(userId: string, limit = 5): Promise<NudgeEntry[]> {
+/** Newest reach-out drafts; pass `persona` to get only that companion's own. */
+export async function listRecentNudges(userId: string, limit = 5, persona?: string): Promise<NudgeEntry[]> {
   const pool = getPool();
   if (!pool) return [];
   const { rows } = await pool.query<NudgeRow>(
     `SELECT id, person, message, persona, created_at FROM nudges
-     WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-    [userId, limit],
+     WHERE user_id = $1 AND ($3::text IS NULL OR persona = $3) ORDER BY created_at DESC LIMIT $2`,
+    [userId, limit, persona ?? null],
   );
   return rows.map(toEntry);
 }

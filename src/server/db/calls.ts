@@ -16,24 +16,24 @@ export async function createCall(userId: string, persona: string): Promise<numbe
   return rows[0].id;
 }
 
-/** Stores the transcript and closes the call. Returns false if the call is not this user's or already ended. */
+/** Stores the transcript and closes the call. Returns the call's persona, or null if it is not this user's or already ended. */
 export async function endCall(
   userId: string,
   callId: number,
   lines: CallLine[],
   usage?: { input_tokens: number; output_tokens: number; cached_tokens: number },
-): Promise<boolean> {
+): Promise<string | null> {
   const client = await pool().connect();
   try {
     await client.query("BEGIN");
-    const { rowCount } = await client.query(
+    const { rows: ended } = await client.query<{ persona: string }>(
       `UPDATE calls SET ended_at = now(), input_tokens = $3, output_tokens = $4, cached_tokens = $5
-       WHERE id = $1 AND user_id = $2 AND ended_at IS NULL`,
+       WHERE id = $1 AND user_id = $2 AND ended_at IS NULL RETURNING persona`,
       [callId, userId, usage?.input_tokens ?? 0, usage?.output_tokens ?? 0, usage?.cached_tokens ?? 0],
     );
-    if (!rowCount) {
+    if (!ended[0]) {
       await client.query("ROLLBACK");
-      return false;
+      return null;
     }
     for (const [position, line] of lines.entries()) {
       await client.query("INSERT INTO call_messages (call_id, position, role, text) VALUES ($1, $2, $3, $4)", [
@@ -44,7 +44,7 @@ export async function endCall(
       ]);
     }
     await client.query("COMMIT");
-    return true;
+    return ended[0].persona;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -66,14 +66,20 @@ interface CallRow {
   what_helped: string | null;
 }
 
-/** Most recent finished calls, newest first, with transcripts when `withLines` is set. */
-export async function listRecentCalls(userId: string, limit = 10, withLines = false): Promise<CallEntry[]> {
+/** Most recent finished calls, newest first, with transcripts when `withLines` is set; `persona` scopes to one companion. */
+export async function listRecentCalls(
+  userId: string,
+  limit = 10,
+  withLines = false,
+  persona?: string,
+): Promise<CallEntry[]> {
   const p = getPool();
   if (!p) return [];
   const { rows } = await p.query<CallRow>(
     `SELECT id, persona, started_at, ended_at, summary, what_helped FROM calls
-     WHERE user_id = $1 AND ended_at IS NOT NULL ORDER BY started_at DESC LIMIT $2`,
-    [userId, limit],
+     WHERE user_id = $1 AND ended_at IS NOT NULL AND ($3::text IS NULL OR persona = $3)
+     ORDER BY started_at DESC LIMIT $2`,
+    [userId, limit, persona ?? null],
   );
   const lines = new Map<number, CallLine[]>();
   if (withLines && rows.length) {

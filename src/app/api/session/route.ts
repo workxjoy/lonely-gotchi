@@ -45,10 +45,11 @@ export async function POST(request: Request) {
   const language = isLanguageMode(parsed.data.language) ? parsed.data.language : "auto";
 
   const [moods, memories, nudges, calls] = await Promise.all([
-    listRecentMoods(user.id, 5).catch(() => []),
-    listRecentMemories(user.id, 8).catch(() => []),
-    listRecentNudges(user.id, 3).catch(() => []),
-    listRecentCalls(user.id, 3).catch(() => []),
+    // Each companion keeps its own memory: only what the user shared with this persona.
+    listRecentMoods(user.id, 5, persona.id).catch(() => []),
+    listRecentMemories(user.id, 8, persona.id).catch(() => []),
+    listRecentNudges(user.id, 3, persona.id).catch(() => []),
+    listRecentCalls(user.id, 3, false, persona.id).catch(() => []),
   ]);
   // A handoff continues the same call; a fresh call gets its own log.
   const callId = parsed.data.callId ?? (await createCall(user.id, persona.id).catch(() => undefined));

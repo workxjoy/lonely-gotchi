@@ -40,13 +40,14 @@ export async function insertMood(
   return rows[0] ? toEntry(rows[0]) : null;
 }
 
-export async function listRecentMoods(userId: string, limit = 20): Promise<MoodEntry[]> {
+/** Newest moods; pass `persona` to get only moods shared with that companion. */
+export async function listRecentMoods(userId: string, limit = 20, persona?: string): Promise<MoodEntry[]> {
   const pool = getPool();
   if (!pool) return [];
   const { rows } = await pool.query<MoodRow>(
     `SELECT id, persona, mood, intensity, note, created_at
-     FROM moods WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-    [userId, limit],
+     FROM moods WHERE user_id = $1 AND ($3::text IS NULL OR persona = $3) ORDER BY created_at DESC LIMIT $2`,
+    [userId, limit, persona ?? null],
   );
   return rows.map(toEntry);
 }

@@ -34,7 +34,7 @@ const INSTRUCTIONS = `You review a finished call between a user and their compan
 Call save_call_summary exactly once. Also call remember once for each durable new fact about the user's life (people, plans, worries, wins) that a friend should recall next time. Do not repeat trivial small talk.`;
 
 /** Learning loop: after a call, store a summary + what helped, and extract durable memories. */
-export async function summarizeCall(userId: string, callId: number, lines: CallLine[]): Promise<void> {
+export async function summarizeCall(userId: string, callId: number, lines: CallLine[], persona: string): Promise<void> {
   const spoken = lines.filter((l) => l.role !== "system" && l.text.trim());
   if (!spoken.some((l) => l.role === "user")) {
     await saveCallSummary(callId, "A short call; nothing was shared this time.", null); // nothing to learn
@@ -51,7 +51,7 @@ export async function summarizeCall(userId: string, callId: number, lines: CallL
       if (call.name === "save_call_summary" && args.summary) {
         await saveCallSummary(callId, args.summary.slice(0, 600), args.what_helped?.slice(0, 300) || null);
       }
-      if (call.name === "remember" && args.fact) await insertMemory(userId, args.fact.slice(0, 300));
+      if (call.name === "remember" && args.fact) await insertMemory(userId, args.fact.slice(0, 300), persona);
     } catch (err) {
       console.error("[summarizer]", err);
     }

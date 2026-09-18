@@ -103,7 +103,7 @@ export async function executeTool(
     }
     case "remember": {
       const args = argSchemas.remember.parse(rawArgs);
-      await insertMemory(ctx.userId, args.fact);
+      await insertMemory(ctx.userId, args.fact, ctx.persona);
       return { ok: true };
     }
     case "suggest_reach_out": {
