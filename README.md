@@ -6,6 +6,24 @@ Loneliness affects 1 in 6 people worldwide and is linked to more than 871,000 de
 
 Built in one day at *Build an AI Startup in One Day* with **Boson AI Higgs** (Realtime, Avatar, TTS, STT) and **InstaCloud**.
 
+## Team
+
+| Name | GitHub |
+| --- | --- |
+| Cristina McComic | [@CrMcComic](https://github.com/CrMcComic) |
+| Drew Brosnan | |
+| Joy S | [@workxjoy](https://github.com/workxjoy) |
+
+## Submission
+
+| | |
+| --- | --- |
+| Project | lonely-gotchi |
+| One-liner | A voice companion that calls you, listens, remembers, and hands you back to the people who matter. |
+| Tracks | Weird and Wonderful, Breaking the Language Barrier, Best use of InsForge |
+| Repository | [github.com/workxjoy/lonely-gotchi](https://github.com/workxjoy/lonely-gotchi) |
+| Built with | Boson AI Higgs Realtime, STT, TTS, create-voice, Avatar; InstaCloud Postgres; Next.js 16; Better Auth |
+
 ## What it does
 
 | Agent | Role |
@@ -21,7 +39,8 @@ Also:
 - **SaaS layout**: sidebar navigation with **Call** and **Dashboard**; the dashboard shows check-in stats, a mood chart, memories, drafts and full history.
 - **Avatar greeting**: each call opens with a lip-synced Higgs Avatar clip, then the face stays on screen during the live call.
 - **Memory across calls**: the next call opens by referencing what you shared before.
-- **Type or talk**: typed messages get spoken replies, for noisy rooms.
+- **Push to talk or hands-free**: hold a button (or Space) to talk, which is reliable in noisy rooms, or talk hands-free with natural turn-taking and barge-in. Typed messages also get spoken replies.
+- **Automatic language following**: in Auto mode the app detects Chinese or Hindi script in what you say and switches the companion's language mid-call (Boson rejects mid-call system messages, so the switch is a `session.update`; a reply already started in the old language is cancelled and re-asked).
 - **Gotchi**: a little face whose color and expression follow your latest mood, next to a mood timeline.
 - **Hindi + Hinglish**: a language switch (Auto, English, हिन्दी). Hindi mode sends a Hindi hint to Higgs STT, tells the companion to speak Hindi, plays Hindi avatar greetings, and renders captions in Noto Sans Devanagari. Auto mode follows the user, including mid-sentence code-switching.
 - **Abuse cut-off**: every utterance (spoken transcript or typed) is checked against an English, romanized-Hindi and Devanagari abuse list. On a match the reply is cancelled, the call ends with an on-screen alert, the words are masked in captions and the call log, and nothing is sent to the Listener (the server enforces the same check). Boson Realtime has no built-in moderation; its docs point to input transcripts for this.
