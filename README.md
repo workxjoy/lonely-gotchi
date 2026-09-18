@@ -78,17 +78,33 @@ sequenceDiagram
   B->>H: new session leg with handoff context
 ```
 
-**How Higgs is used**
-- **Higgs Realtime** (`higgs-realtime`): the live call. Server VAD with barge-in, an echo guard for laptop speakers, tool calling for the council handoff, preset voices (Ethan, Nora), and a custom voice.
-- **Higgs STT** (`higgs-stt-3.1`): live captions of what you say, which also feed the Listener.
-- **Higgs Realtime in text mode**: the Listener agent, a one-shot tool-calling turn per utterance. It is far more reliable for bookkeeping than asking the talking model to also call tools.
-- **Higgs Avatar** (`higgs-avatar`) + **Higgs TTS**: pre-rendered, lip-synced greeting clips per persona.
-- **Higgs create-voice** (`POST /v1/audio/voices`): the Fairy Godmother's custom voice, cloned from a consented family recording (`npm run voice:create -- <file> fairy-godmother`). The clone ID stays in `.env.local`; a fresh clone of the repo falls back to the Eleanor preset.
+## Boson AI APIs used
 
-**How InstaCloud is used**
-- Managed **Postgres** for moods, memories, and nudges, with tracked migrations (`migrations/`).
-- `insta run` injects database credentials at runtime; nothing is written to disk.
-- Compute deploy target for the public demo.
+Every conversation runs on [Boson AI](https://www.boson.ai/) Higgs models ([docs](https://docs.boson.ai)).
+
+| Boson API | Model | What lonely-gotchi uses it for | Code |
+| --- | --- | --- | --- |
+| Realtime WebSocket `wss://api.boson.ai/v1/realtime` | `higgs-realtime` | The live voice call: speech-to-speech, server VAD with barge-in, push-to-talk manual turns, tool calling for the Inner Council handoff, mid-call `session.update` for language switching, exact token usage per reply | `src/features/call/useRealtimeCall.ts` |
+| Realtime client secrets `POST /v1/realtime/client_secrets` | | Short-lived `bai-eph-` keys so the browser connects directly while the API key stays on the server | `src/server/boson/client.ts` |
+| Realtime in text mode (server side) | `higgs-realtime` | The Listener agent (mood, memories, reach-out drafts per utterance) and the Summarizer agent (call summary, what helped, new facts) | `src/server/boson/realtime-text.ts`, `src/server/companion/` |
+| Input transcription | `higgs-stt-3.1` | Live captions, Listener input, abuse detection, language detection (Hindi and Chinese hints) | `src/app/api/session/route.ts` |
+| Voices `POST /v1/audio/voices` | | The Fairy Godmother's custom voice, cloned from a consented family recording | `scripts/create-voice.mjs` |
+| Videos `POST /v1/videos`, `GET /v1/videos/{id}`, `GET /v1/videos/{id}/content` | `higgs-avatar` + `higgs-tts-3` (`input_tts`) | Lip-synced greeting clips (English, Hindi, Chinese) and talking loops for each companion | `scripts/render-greetings.mjs` |
+
+Voices: Ethan and Nora presets plus one custom clone. Languages: English, Hindi, Chinese, and mid-sentence code-switching.
+
+## InstaCloud usage
+
+The backend runs on [InstaCloud](https://www.instacloud.com/) by InsForge.
+
+| What | How |
+| --- | --- |
+| Managed Postgres 16 (`db` service, us-east) | All app data: Better Auth users, sessions and accounts; moods, memories, nudges; call logs, transcripts and token usage |
+| Tracked migrations | 5 SQL files in `migrations/`, applied with `insta run -- npm run db:migrate` (applied files recorded in `schema_migrations`) |
+| Runtime secrets | `insta run -- npm run dev` injects `DATABASE_URL` into the process only; nothing is written to disk |
+| Agent-governed setup | `insta setup agent` linked the repo to the project with a project-scoped agent session and a credential audit hook; the coding agent provisioned the database through the `insta` CLI |
+| Scale-to-zero aware | Postgres pools drop idle clients after 10 s and handle dropped connections without crashing |
+| Deploy target | The production build passes; the app is ready for InstaCloud compute (`insta deploy`) once the API keys are stored as InstaCloud secrets |
 
 ## Project structure
 
