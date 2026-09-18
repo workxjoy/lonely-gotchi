@@ -6,9 +6,9 @@ Loneliness affects 1 in 6 people worldwide and is linked to more than 871,000 de
 
 ## Demo video
 
-[![Watch the lonely-gotchi demo](docs/demo/thumbnail.jpg)](docs/demo/lonely-gotchi-demo.mp4)
+[![Watch the lonely-gotchi demo](docs/demo/thumbnail.jpg)](https://drive.google.com/file/d/1rAPovzt3G32v7Zqf7m_A5C5Eugk6jDt6/view?usp=sharing)
 
-**[Watch the demo (3 min)](docs/demo/lonely-gotchi-demo.mp4)**: sign up, call a companion with a lip-synced avatar greeting, talk and interrupt, Inner Council handoff, Hindi, and the dashboard.
+**[Watch the demo on Google Drive (3 min)](https://drive.google.com/file/d/1rAPovzt3G32v7Zqf7m_A5C5Eugk6jDt6/view?usp=sharing)** (also in the repo: [`docs/demo/lonely-gotchi-demo.mp4`](docs/demo/lonely-gotchi-demo.mp4)): sign up, call a companion with a lip-synced avatar greeting, talk and interrupt, Inner Council handoff, Hindi, and the dashboard.
 
 Built in one day at *Build an AI Startup in One Day* with **Boson AI Higgs** (Realtime, Avatar, TTS, STT) and **InstaCloud**.
 
@@ -28,6 +28,7 @@ Built in one day at *Build an AI Startup in One Day* with **Boson AI Higgs** (Re
 | One-liner | A voice companion that calls you, listens, remembers, and hands you back to the people who matter. |
 | Tracks | Weird and Wonderful, Breaking the Language Barrier, Best use of InsForge |
 | Repository | [github.com/workxjoy/lonely-gotchi](https://github.com/workxjoy/lonely-gotchi) |
+| Demo video | [Google Drive](https://drive.google.com/file/d/1rAPovzt3G32v7Zqf7m_A5C5Eugk6jDt6/view?usp=sharing) |
 | Built with | Boson AI Higgs Realtime, STT, TTS, create-voice, Avatar; InstaCloud Postgres; Next.js 16; Better Auth |
 
 ## What it does
