@@ -20,6 +20,8 @@ export interface Persona {
   greetingHi: string;
   /** Mandarin opening line for the 中文 language mode (<persona>-zh.mp4). */
   greetingZh: string;
+  /** Korean opening line for the 한국어 language mode (<persona>-ko.mp4). */
+  greetingKo: string;
 }
 
 export const PERSONAS: readonly Persona[] = [
@@ -35,6 +37,7 @@ export const PERSONAS: readonly Persona[] = [
     greeting: "Hey you. I'm so glad you picked up. How are you really doing tonight?",
     greetingHi: "अरे, तुमने फ़ोन उठा लिया, बहुत अच्छा लगा। सच बताओ, आज तुम कैसे हो?",
     greetingZh: "嘿，你接电话了，我真开心。跟我说说，今晚你真的还好吗？",
+    greetingKo: "안녕, 전화 받아줘서 정말 기뻐. 오늘 밤 진짜 기분은 어때?",
   },
   {
     id: "sassy-best-friend",
@@ -48,6 +51,7 @@ export const PERSONAS: readonly Persona[] = [
     greeting: "Okay, finally! I was about to send a search party. Spill it, how are you actually doing?",
     greetingHi: "आख़िरकार! मैं तो तुम्हें ढूँढने निकलने वाली थी। चलो बताओ, सच में क्या चल रहा है?",
     greetingZh: "终于！我都快派搜救队去找你了。快说，最近到底怎么样？",
+    greetingKo: "드디어! 수색대 보내려던 참이었어. 빨리 말해 봐, 요즘 진짜 어때?",
   },
   {
     id: "fairy-godmother",
@@ -61,6 +65,7 @@ export const PERSONAS: readonly Persona[] = [
     greeting: "Oh, my dear, there you are. I've been waiting for you. Tell me, how is your heart today?",
     greetingHi: "अरे मेरे बच्चे, तुम आ गए। मैं तुम्हारा ही इंतज़ार कर रही थी। बताओ, आज दिल कैसा है?",
     greetingZh: "哎呀，我亲爱的孩子，你来了。我一直在等你。告诉我，今天你的心情怎么样？",
+    greetingKo: "아이고, 우리 아가, 왔구나. 계속 기다리고 있었단다. 오늘 마음은 좀 어떠니?",
   },
 ];
 

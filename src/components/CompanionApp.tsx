@@ -32,8 +32,9 @@ export function CompanionApp({ userName }: { userName: string }) {
 
   const startCall = () => {
     const persona = getPersona(personaId);
-    const greeting = language === "hi" ? persona?.greetingHi : language === "zh" ? persona?.greetingZh : persona?.greeting;
-    setClipSrc(`/avatars/${personaId}${language === "hi" || language === "zh" ? `-${language}` : ""}.mp4`);
+    const greeting =
+      language === "hi" ? persona?.greetingHi : language === "ko" ? persona?.greetingKo : persona?.greeting;
+    setClipSrc(`/avatars/${personaId}${language === "hi" || language === "ko" ? `-${language}` : ""}.mp4`);
     void call.start(personaId, userName, greeting, language, pushToTalk);
   };
   const endClip = () => {

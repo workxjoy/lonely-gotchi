@@ -20,7 +20,7 @@
 body {
   background: radial-gradient(1200px 600px at 10% -10%, #2b1e3a 0%, transparent 60%), var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), var(--font-devanagari), "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: var(--font-geist-sans), var(--font-devanagari), "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
 }
 
 @keyframes bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }

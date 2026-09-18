@@ -47,9 +47,9 @@ Also:
 - **Avatar greeting**: each call opens with a lip-synced Higgs Avatar clip, then the face stays on screen during the live call.
 - **Separate memory per companion**: the Loving Partner, Sassy Best Friend and Fairy Godmother each keep their own context (calls, what helped, moods, memories, reach-out drafts); the next call with the same companion picks up where you left off. The dashboard shows all of it, labeled by companion.
 - **Push to talk or hands-free**: tap once to talk and again to send (or hold the button or Space), which is reliable in noisy rooms, or talk hands-free with natural turn-taking and barge-in. Typed messages also get spoken replies.
-- **Automatic language following**: in Auto mode the app detects Hindi (Devanagari) in what you say and switches the companion's language mid-call; one unclear phrase can't flip it. Speech-to-text is hinted to English or Hindi so unclear audio isn't misheard as another language. Boson rejects mid-call system messages, so the switch is a `session.update`.
+- **One language per call**: choose English, हिन्दी (Hindi) or 한국어 (Korean), or Auto, which picks up your language from your first clear sentence. The language then stays locked for the whole call, including handoffs, so it never switches midway. Speech-to-text is hinted to the chosen language, the prompt ends with a language lock, and each reply is preceded by a short hidden note written in that language (tested 6/6 Korean replies even when the user spoke English).
 - **Gotchi**: a little face whose color and expression follow your latest mood, next to a mood timeline.
-- **Hindi + Hinglish**: a language switch (Auto, English, हिन्दी). Hindi mode sends a Hindi hint to Higgs STT, tells the companion to speak Hindi, plays Hindi avatar greetings, and renders captions in Noto Sans Devanagari. Auto mode follows the user, including mid-sentence code-switching.
+- **Hindi, Hinglish and Korean**: a language switch (Auto, English, हिन्दी, 한국어). Choosing a language sends a speech-to-text hint, locks the companion's replies to it, plays greetings in that language, and renders captions with proper Devanagari and Hangul fonts.
 - **Abuse cut-off**: every utterance (spoken transcript or typed) is checked against an English, romanized-Hindi and Devanagari abuse list. On a match the reply is cancelled, the call ends with an on-screen alert, the words are masked in captions and the call log, and nothing is sent to the Listener (the server enforces the same check). Boson Realtime has no built-in moderation; its docs point to input transcripts for this.
 - **Safety**: if self-harm comes up, it points to 988 (US) or local emergency services. It is a companion, not a therapist.
 
@@ -94,11 +94,11 @@ Every conversation runs on [Boson AI](https://www.boson.ai/) Higgs models ([docs
 | Realtime WebSocket `wss://api.boson.ai/v1/realtime` | `higgs-realtime` | The live voice call: speech-to-speech, server VAD with barge-in, push-to-talk manual turns, tool calling for the Inner Council handoff, mid-call `session.update` for language switching, exact token usage per reply | `src/features/call/useRealtimeCall.ts` |
 | Realtime client secrets `POST /v1/realtime/client_secrets` | | Short-lived `bai-eph-` keys so the browser connects directly while the API key stays on the server | `src/server/boson/client.ts` |
 | Realtime in text mode (server side) | `higgs-realtime` | The Listener agent (mood, memories, reach-out drafts per utterance) and the Summarizer agent (call summary, what helped, new facts) | `src/server/boson/realtime-text.ts`, `src/server/companion/` |
-| Input transcription | `higgs-stt-3.1` | Live captions, Listener input, abuse detection, language detection (English and Hindi hints) | `src/app/api/session/route.ts` |
+| Input transcription | `higgs-stt-3.1` | Live captions, Listener input, abuse detection, language detection (English, Hindi and Korean hints) | `src/app/api/session/route.ts` |
 | Voices `POST /v1/audio/voices` | | The Fairy Godmother's custom voice, cloned from a consented family recording | `scripts/create-voice.mjs` |
-| Videos `POST /v1/videos`, `GET /v1/videos/{id}`, `GET /v1/videos/{id}/content` | `higgs-avatar` + `higgs-tts-3` (`input_tts`) | Lip-synced greeting clips (English and Hindi) and talking loops for each companion | `scripts/render-greetings.mjs` |
+| Videos `POST /v1/videos`, `GET /v1/videos/{id}`, `GET /v1/videos/{id}/content` | `higgs-avatar` + `higgs-tts-3` (`input_tts`) | Lip-synced greeting clips (English, Hindi and Korean) and talking loops for each companion | `scripts/render-greetings.mjs` |
 
-Voices: Ethan and Nora presets plus one custom clone. Languages: English, Hindi, and Hinglish code-switching.
+Voices: Ethan and Nora presets plus one custom clone. Languages: English, Hindi (including Hinglish) and Korean.
 
 ## InstaCloud usage
 

@@ -19,17 +19,18 @@ const personas = (await readFile("src/shared/personas.ts", "utf8"))
     greeting: /greeting: "([^"]+)"/.exec(chunk)[1],
     greetingHi: /greetingHi: "([^"]+)"/.exec(chunk)?.[1],
     greetingZh: /greetingZh: "([^"]+)"/.exec(chunk)?.[1],
+    greetingKo: /greetingKo: "([^"]+)"/.exec(chunk)?.[1],
   }));
 
 // Natural, varied speech so the loop's mouth movement reads as conversation.
 const TALK_LINE =
   "Mm, I hear you. And honestly? You are doing so much better than you give yourself credit for. I'm right here with you, okay, every single step of the way.";
 
-async function render({ id, voice: presetVoice, greeting, greetingHi, greetingZh }, kind) {
+async function render({ id, voice: presetVoice, greeting, greetingHi, greetingZh, greetingKo }, kind) {
   // Personal voice clones live in .env.local (VOICE_<PERSONA_ID>), never in the repo.
   const override = process.env[`VOICE_${id.toUpperCase().replace(/-/g, "_")}`];
   const voice = override?.startsWith("voice_") ? override : presetVoice;
-  const text = { greeting, "greeting-hi": greetingHi, "greeting-zh": greetingZh, talk: TALK_LINE }[kind];
+  const text = { greeting, "greeting-hi": greetingHi, "greeting-zh": greetingZh, "greeting-ko": greetingKo, talk: TALK_LINE }[kind];
   if (!text) return;
   const face = `data:image/jpeg;base64,${(await readFile(`public/avatars/${id}.jpg`)).toString("base64")}`;
   const created = await fetch(API, {
@@ -50,7 +51,7 @@ async function render({ id, voice: presetVoice, greeting, greetingHi, greetingZh
     if (v.status === "failed") throw new Error(`${id}: ${JSON.stringify(v.error)}`);
   }
   const mp4 = Buffer.from(await (await fetch(`${API}/${created.id}/content`, { headers })).arrayBuffer());
-  const suffix = { greeting: "", "greeting-hi": "-hi", "greeting-zh": "-zh", talk: "-talk" }[kind];
+  const suffix = { greeting: "", "greeting-hi": "-hi", "greeting-zh": "-zh", "greeting-ko": "-ko", talk: "-talk" }[kind];
   const out = `${id}${suffix}.mp4`;
   await writeFile(`public/avatars/${out}`, mp4);
   console.log(`rendered ${out} (${(mp4.length / 1024).toFixed(0)} KB)`);
@@ -59,7 +60,7 @@ async function render({ id, voice: presetVoice, greeting, greetingHi, greetingZh
 // Optional args: persona ids to render (default: all). Sequential: Boson rate-limits parallel avatar jobs.
 const args = process.argv.slice(2);
 const kindArg = args.find((a) => a.startsWith("--kind="))?.slice("--kind=".length);
-const kinds = kindArg ? [kindArg] : ["greeting", "greeting-hi", "greeting-zh", "talk"];
+const kinds = kindArg ? [kindArg] : ["greeting", "greeting-hi", "greeting-ko", "talk"];
 const only = args.filter((a) => !a.startsWith("--"));
 for (const persona of personas.filter((p) => only.length === 0 || only.includes(p.id))) {
   for (const kind of kinds) await render(persona, kind);

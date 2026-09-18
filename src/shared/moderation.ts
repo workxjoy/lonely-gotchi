@@ -8,8 +8,8 @@ const LATIN = [
   "chutiya", "chutiye", "madarchod", "maderchod", "behenchod", "bhenchod", "bhosdike", "bhosdi", "bsdk",
   "gandu", "harami", "randi", "lodu", "lauda", "lavda",
 ];
-// Devanagari and Chinese terms, matched as substrings (\b does not work for these scripts).
-const DEVANAGARI = ["傻逼", "他妈的", "操你妈", "草泥马", "贱人", "चूतिया", "चुतिया", "मादरचोद", "बहनचोद", "भेनचोद", "भोसड़ी", "भोसडी", "गांडू", "हरामी", "रंडी", "लौड़ा", "लवड़ा"];
+// Devanagari, Chinese and Korean terms, matched as substrings (\b does not work for these scripts).
+const DEVANAGARI = ["씨발", "시발", "개새끼", "병신", "좆", "傻逼", "他妈的", "操你妈", "草泥马", "贱人", "चूतिया", "चुतिया", "मादरचोद", "बहनचोद", "भेनचोद", "भोसड़ी", "भोसडी", "गांडू", "हरामी", "रंडी", "लौड़ा", "लवड़ा"];
 
 const latinPattern = new RegExp(`\\b(${LATIN.join("|")})\\b`, "gi");
 

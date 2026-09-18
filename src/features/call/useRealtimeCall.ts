@@ -13,17 +13,16 @@ import type { CallStatus, CaptionLine, ServerEvent, SessionResponse } from "./ty
 // speakers and sent as silence, so it cannot interrupt itself. Normal speech is well above it.
 const BARGE_IN_LEVEL = 0.045;
 
-type SpokenLang = "en" | "zh" | "hi";
+type SpokenLang = "en" | "zh" | "hi" | "ko";
 
-/**
- * Script-based detection of what the user just spoke or typed (Auto language mode), with a strength
- * so one mis-transcribed phrase can't flip the language (STT sometimes hears English as Chinese).
- */
-function detectLang(text: string): { lang: SpokenLang; strong: boolean } | undefined {
+/** Script-based detection of the language of one utterance; undefined when it is too short or unclear. */
+function detectLang(text: string): SpokenLang | undefined {
+  const hangul = text.match(/[\uac00-\ud7af]/g)?.length ?? 0;
   const devanagari = text.match(/[\u0900-\u097f]/g)?.length ?? 0;
   const latinWords = text.match(/[a-z]{2,}/gi)?.length ?? 0;
-  if (devanagari > 0 && latinWords === 0) return { lang: "hi", strong: devanagari >= 12 };
-  if (latinWords >= 2) return { lang: "en", strong: true };
+  if (hangul >= 2 && latinWords === 0) return "ko";
+  if (devanagari >= 2 && latinWords === 0) return "hi";
+  if (latinWords >= 2) return "en";
   return undefined;
 }
 
@@ -32,6 +31,7 @@ const LANGUAGE_OVERRIDE: Record<SpokenLang, string> = {
   en: "",
   zh: "\n\nLANGUAGE OVERRIDE: the user is now speaking Chinese (中文). Reply ONLY in Mandarin Chinese.",
   hi: "\n\nLANGUAGE OVERRIDE: the user is now speaking Hindi (हिन्दी). Reply ONLY in Hindi.",
+  ko: "\n\nLANGUAGE OVERRIDE: the user is speaking Korean (한국어). Reply ONLY in Korean for the rest of this call.",
 };
 
 const HANDOFF_PHRASE = new RegExp(`let me bring in your (${PERSONAS.map((p) => p.name).join("|")})`, "i");
@@ -76,8 +76,8 @@ interface CallResources {
   turnMaxLevel: number;
   baseInstructions?: string;
   spokenLang: SpokenLang;
-  /** A pending non-English detection waiting for a second confirming turn. */
-  langVote?: SpokenLang;
+  /** Auto mode: the call's language is decided once, from the first clear sentence, then never changes. */
+  langLocked: boolean;
   replyAfterTranscript: boolean;
   responseActive: boolean;
   callId?: number;
@@ -108,6 +108,7 @@ const freshResources = (): CallResources => ({
   turnStartedAt: 0,
   turnMaxLevel: 0,
   spokenLang: "en",
+  langLocked: false,
   replyAfterTranscript: false,
   responseActive: false,
   usage: { input_tokens: 0, output_tokens: 0, cached_tokens: 0 },
@@ -159,8 +160,14 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
    */
   const requestReply = useCallback(() => {
     const r = res.current;
-    const lang = r.language === "auto" ? (r.spokenLang === "hi" ? "hi" : undefined) : r.language;
-    const note = lang === "hi" ? "(Reply only in Hindi, in Devanagari.)" : lang === "en" ? "(Reply only in English.)" : null;
+    const lang = r.language === "auto" ? (r.langLocked ? r.spokenLang : undefined) : r.language;
+    const NOTES: Partial<Record<string, string>> = {
+      // Written in the target language: tested 6/6 Korean replies vs mixed with an English-only note.
+      en: "(Reply only in English.)",
+      hi: "(कृपया केवल हिंदी में जवाब दें। Reply only in Hindi.)",
+      ko: "(한국어로만 대답해 주세요. Reply only in Korean.)",
+    };
+    const note = lang ? (NOTES[lang] ?? null) : null;
     if (note) {
       send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: note }] } });
     }
@@ -171,20 +178,12 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
   const followLanguage = useCallback(
     (text: string): boolean => {
       const r = res.current;
-      if (r.language !== "auto" || !r.baseInstructions) return false;
-      const detected = detectLang(text);
-      if (!detected) return false;
-      const { lang, strong } = detected;
-      if (lang === r.spokenLang) {
-        r.langVote = undefined;
-        return false;
-      }
-      // Leaving the current language needs a long clear sentence, or two short ones in a row.
-      if (!strong && r.langVote !== lang) {
-        r.langVote = lang;
-        return false;
-      }
-      r.langVote = undefined;
+      // One language per call: fixed modes never change, and Auto decides once, from the first clear sentence.
+      if (r.language !== "auto" || r.langLocked || !r.baseInstructions) return false;
+      const lang = detectLang(text);
+      if (!lang) return false;
+      r.langLocked = true;
+      if (lang === r.spokenLang) return false;
       r.spokenLang = lang;
       send({ type: "session.update", session: { instructions: r.baseInstructions + LANGUAGE_OVERRIDE[lang] } });
       return true;

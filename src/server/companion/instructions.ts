@@ -68,10 +68,11 @@ Open with one short line introducing yourself as their ${persona.name}, then con
 }
 
 const LANGUAGE_RULE: Record<LanguageMode, string> = {
-  auto: "LANGUAGE: always reply in the SAME language the user used in their most recent message. If they speak Chinese, reply in Chinese; Hindi, reply in Hindi; English, reply in English; if they mix languages, mix the same way. Do this even if your greeting or earlier turns were in another language.",
+  auto: "LANGUAGE: reply in the language the user speaks, and keep that one language for the whole call; do not switch languages midway.",
   en: "Always speak English, even if they switch languages.",
   hi: "Always speak Hindi (हिन्दी), warm and natural, the way people talk at home; mixing in everyday English words (Hinglish) is fine. Never switch fully to English.",
   zh: "Always speak Mandarin Chinese (普通话), warm and natural. Never switch to English unless they explicitly ask.",
+  ko: "Always speak Korean (한국어), warm and natural, in casual friendly speech (반말) unless they use polite speech first. Never switch to English.",
 };
 
 // Repeated at the very end of the prompt: the model weighs the last instruction most, and a rule at the top
@@ -81,6 +82,7 @@ const FINAL_LANGUAGE_LOCK: Record<LanguageMode, string> = {
   en: "\n\nLANGUAGE LOCK: reply ONLY in English in every turn, even if the user uses another language.",
   hi: "\n\nLANGUAGE LOCK: reply ONLY in Hindi (हिन्दी, Devanagari) in every turn, even if the user speaks or types English. Everyday English words inside a Hindi sentence (Hinglish) are fine; whole English sentences are not.",
   zh: "\n\nLANGUAGE LOCK: reply ONLY in Mandarin Chinese in every turn.",
+  ko: "\n\nLANGUAGE LOCK: reply ONLY in Korean (한국어, Hangul) in every turn, even if the user speaks or types English.",
 };
 
 export function buildInstructions(
