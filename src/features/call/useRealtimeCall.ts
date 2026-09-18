@@ -15,11 +15,17 @@ const BARGE_IN_LEVEL = 0.045;
 
 type SpokenLang = "en" | "zh" | "hi";
 
-/** Script-based detection of what the user just spoke or typed (Auto language mode). */
-function detectLang(text: string): SpokenLang | undefined {
-  if (/[\u4e00-\u9fff]/.test(text)) return "zh";
-  if (/[\u0900-\u097f]/.test(text)) return "hi";
-  if (/[a-z]{2,}/i.test(text)) return "en";
+/**
+ * Script-based detection of what the user just spoke or typed (Auto language mode), with a strength
+ * so one mis-transcribed phrase can't flip the language (STT sometimes hears English as Chinese).
+ */
+function detectLang(text: string): { lang: SpokenLang; strong: boolean } | undefined {
+  const cjk = text.match(/[\u4e00-\u9fff]/g)?.length ?? 0;
+  const devanagari = text.match(/[\u0900-\u097f]/g)?.length ?? 0;
+  const latinWords = text.match(/[a-z]{2,}/gi)?.length ?? 0;
+  if (cjk > 0 && latinWords === 0) return { lang: "zh", strong: cjk >= 8 };
+  if (devanagari > 0 && latinWords === 0) return { lang: "hi", strong: devanagari >= 12 };
+  if (latinWords >= 2) return { lang: "en", strong: true };
   return undefined;
 }
 
@@ -67,6 +73,8 @@ interface CallResources {
   pttHeld: boolean;
   baseInstructions?: string;
   spokenLang: SpokenLang;
+  /** A pending non-English detection waiting for a second confirming turn. */
+  langVote?: SpokenLang;
   replyAfterTranscript: boolean;
   responseActive: boolean;
   callId?: number;
@@ -141,8 +149,19 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     (text: string): boolean => {
       const r = res.current;
       if (r.language !== "auto" || !r.baseInstructions) return false;
-      const lang = detectLang(text);
-      if (!lang || lang === r.spokenLang) return false;
+      const detected = detectLang(text);
+      if (!detected) return false;
+      const { lang, strong } = detected;
+      if (lang === r.spokenLang) {
+        r.langVote = undefined;
+        return false;
+      }
+      // Leaving the current language needs a long clear sentence, or two short ones in a row.
+      if (!strong && r.langVote !== lang) {
+        r.langVote = lang;
+        return false;
+      }
+      r.langVote = undefined;
       r.spokenLang = lang;
       send({ type: "session.update", session: { instructions: r.baseInstructions + LANGUAGE_OVERRIDE[lang] } });
       return true;
