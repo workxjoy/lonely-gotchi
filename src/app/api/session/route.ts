@@ -18,6 +18,7 @@ const bodySchema = z.object({
   greetedWith: z.string().max(300).optional(),
   callId: z.number().int().optional(),
   language: z.string().optional(),
+  pushToTalk: z.boolean().optional(),
   handoff: z
     .object({
       from: z.string(),
@@ -64,7 +65,10 @@ export async function POST(request: Request) {
         audio: {
           input: {
             format: { type: "audio/pcm", rate: 24000 },
-            turn_detection: { type: "server_vad", threshold: 0.6, prefix_padding_ms: 800, silence_duration_ms: 600 },
+            // Push to talk: the browser commits each turn on release, so background noise can't stall it.
+            turn_detection: parsed.data.pushToTalk
+              ? null
+              : { type: "server_vad", threshold: 0.6, prefix_padding_ms: 800, silence_duration_ms: 700 },
             transcription:
               language === "hi" || language === "zh" ? { model: "higgs-stt-3.1", language } : { model: "higgs-stt-3.1" },
             noise_reduction: { type: "near_field" },

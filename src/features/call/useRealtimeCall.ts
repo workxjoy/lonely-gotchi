@@ -13,6 +13,23 @@ import type { CallStatus, CaptionLine, ServerEvent, SessionResponse } from "./ty
 // speakers and sent as silence, so it cannot interrupt itself. Normal speech is well above it.
 const BARGE_IN_LEVEL = 0.045;
 
+type SpokenLang = "en" | "zh" | "hi";
+
+/** Script-based detection of what the user just spoke or typed (Auto language mode). */
+function detectLang(text: string): SpokenLang | undefined {
+  if (/[\u4e00-\u9fff]/.test(text)) return "zh";
+  if (/[\u0900-\u097f]/.test(text)) return "hi";
+  if (/[a-z]{2,}/i.test(text)) return "en";
+  return undefined;
+}
+
+// Boson rejects system messages mid-call, so a language switch is applied as a session.update.
+const LANGUAGE_OVERRIDE: Record<SpokenLang, string> = {
+  en: "",
+  zh: "\n\nLANGUAGE OVERRIDE: the user is now speaking Chinese (中文). Reply ONLY in Mandarin Chinese.",
+  hi: "\n\nLANGUAGE OVERRIDE: the user is now speaking Hindi (हिन्दी). Reply ONLY in Hindi.",
+};
+
 const HANDOFF_PHRASE = new RegExp(`let me bring in your (${PERSONAS.map((p) => p.name).join("|")})`, "i");
 
 /** Matches "Let me bring in your X." but not offers like "Should I bring in your X?". */
@@ -46,6 +63,12 @@ interface CallResources {
   personaId?: PersonaId;
   userName?: string;
   language?: LanguageMode;
+  pushToTalk: boolean;
+  pttHeld: boolean;
+  baseInstructions?: string;
+  spokenLang: SpokenLang;
+  replyAfterTranscript: boolean;
+  responseActive: boolean;
   callId?: number;
   greetedWith?: string;
   greetingPlaying: boolean;
@@ -67,6 +90,11 @@ interface Options {
 
 const freshResources = (): CallResources => ({
   legReady: false,
+  pushToTalk: false,
+  pttHeld: false,
+  spokenLang: "en",
+  replyAfterTranscript: false,
+  responseActive: false,
   usage: { input_tokens: 0, output_tokens: 0, cached_tokens: 0 },
   greetingPlaying: false,
   handingOff: false,
@@ -107,6 +135,20 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     const ws = res.current.ws;
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   }, []);
+
+  /** Auto language: if the user switched script (e.g. to Chinese), switch the companion's language too. */
+  const followLanguage = useCallback(
+    (text: string): boolean => {
+      const r = res.current;
+      if (r.language !== "auto" || !r.baseInstructions) return false;
+      const lang = detectLang(text);
+      if (!lang || lang === r.spokenLang) return false;
+      r.spokenLang = lang;
+      send({ type: "session.update", session: { instructions: r.baseInstructions + LANGUAGE_OVERRIDE[lang] } });
+      return true;
+    },
+    [send],
+  );
 
   /** Hands one user utterance to the Listener agent (moods, memories, Bridge nudges). */
   const observe = useCallback((text: string, personaId: string) => {
@@ -273,7 +315,9 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           if (!r.stopMic) {
             try {
               const stopMic = await startMic(r.ctx, (pcm) => {
-                const echoOnly = r.greetingPlaying || (r.player?.active && rmsLevel(pcm) < BARGE_IN_LEVEL);
+                if (r.pushToTalk && !r.pttHeld) return; // push to talk: only stream while the button is held
+                const echoOnly =
+                  (!r.pushToTalk && r.greetingPlaying) || (!r.pushToTalk && r.player?.active && rmsLevel(pcm) < BARGE_IN_LEVEL);
                 const audio = echoOnly ? new ArrayBuffer(pcm.byteLength) : pcm;
                 send({ type: "input_audio_buffer.append", audio: bytesToBase64(audio) });
               });
@@ -330,8 +374,27 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
             const id = event.item_id;
             const text = (event.transcript ?? "").trim();
             if (findAbuse(text)) {
+              r.replyAfterTranscript = false;
               cutOff(text, id);
               return;
+            }
+            // Hands-free: Boson always auto-replies at end of turn. If the language just switched and that
+            // reply is already running in the old language, cancel it and ask again in the new one.
+            const switched = followLanguage(text);
+            if (switched && !r.pushToTalk && r.responseActive) {
+              r.player?.stop();
+              const stale = r.speakingItemId;
+              if (stale) {
+                r.interruptedItems.add(stale);
+                setLines((prev) => prev.filter((l) => l.id !== stale));
+              }
+              r.speakingItemId = undefined;
+              send({ type: "response.cancel" });
+              send({ type: "response.create" });
+            }
+            if (r.replyAfterTranscript) {
+              r.replyAfterTranscript = false;
+              send({ type: "response.create" });
             }
             upsertLine(id, () => ({ id, role: "user", text, final: true }));
             // Higgs can refine a transcript for the same item; only the last version goes to the Listener.
@@ -372,7 +435,11 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
             );
           }
           return;
+        case "response.created":
+          r.responseActive = true;
+          return;
         case "response.done": {
+          r.responseActive = false;
           // Exact token usage per reply, summed per call for the usage dashboard.
           const u = event.response?.usage;
           if (u) {
@@ -395,11 +462,12 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
           return;
         case "error":
           console.warn("[realtime] error event", event.error);
+          if (/cancel|no active response/i.test(event.error?.message ?? "")) return;
           setError(event.error?.message ?? "Realtime error");
           return;
       }
     },
-    [cutOff, fail, observe, runToolCalls, send, upsertLine],
+    [cutOff, fail, followLanguage, observe, runToolCalls, send, upsertLine],
   );
 
   const connectLeg = useCallback(
@@ -410,7 +478,15 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
       const response = await fetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personaId, userName: r.userName, greetedWith: r.greetedWith, callId: r.callId, language: r.language, handoff }),
+        body: JSON.stringify({
+          personaId,
+          userName: r.userName,
+          greetedWith: r.greetedWith,
+          callId: r.callId,
+          language: r.language,
+          pushToTalk: r.pushToTalk,
+          handoff,
+        }),
       });
       const body = (await response.json()) as SessionResponse & { error?: string; callId?: number };
       if (!response.ok) throw new Error(body.error ?? `Session failed (${response.status})`);
@@ -419,7 +495,12 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
 
       const ws = new WebSocket(body.url, ["realtime", `bai-client-secret.${body.clientSecret}`]);
       r.ws = ws;
-      ws.onopen = () => ws.send(JSON.stringify({ type: "session.update", session: body.session }));
+      r.baseInstructions = String(body.session.instructions ?? "");
+      const session =
+        r.language === "auto" && r.spokenLang !== "en"
+          ? { ...body.session, instructions: r.baseInstructions + LANGUAGE_OVERRIDE[r.spokenLang] }
+          : body.session;
+      ws.onopen = () => ws.send(JSON.stringify({ type: "session.update", session }));
       ws.onmessage = (msg) => {
         try {
           void handleEvent(JSON.parse(msg.data as string) as ServerEvent, ws);
@@ -449,7 +530,13 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
   }, [connectLeg]);
 
   const start = useCallback(
-    async (personaId: PersonaId, userName?: string, greeting?: string, language: LanguageMode = "auto") => {
+    async (
+      personaId: PersonaId,
+      userName?: string,
+      greeting?: string,
+      language: LanguageMode = "auto",
+      pushToTalk = false,
+    ) => {
       teardown();
       setError(null);
       setLines(greeting ? [{ id: "greeting", role: "assistant", text: greeting, final: true }] : []);
@@ -457,10 +544,15 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
       try {
         const ctx = new AudioContext({ sampleRate: 24000 });
         await ctx.resume();
+        // If Chrome pauses the context (headset or device switch), mic capture stops silently: resume it.
+        ctx.onstatechange = () => {
+          if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+        };
         const r = res.current;
         r.ctx = ctx;
         r.userName = userName || undefined;
         r.language = language;
+        r.pushToTalk = pushToTalk;
         r.greetedWith = greeting;
         r.greetingPlaying = Boolean(greeting);
         // Safety net: if the clip never reports ending (autoplay blocked, decode stall), un-mute anyway.
@@ -492,14 +584,59 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
         if (r.speakingItemId) r.interruptedItems.add(r.speakingItemId);
         send({ type: "response.cancel" });
       }
+      followLanguage(clean);
       setLines((prev) => [...prev, { id: `typed-${Date.now()}`, role: "user", text: clean, final: true }]);
       send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: clean }] } });
       send({ type: "response.create" });
       setThinking(true);
       observe(clean, r.personaId ?? "");
     },
-    [cutOff, observe, send],
+    [cutOff, followLanguage, observe, send],
   );
+
+  /** Push to talk: start a turn. Talking over the companion interrupts it. */
+  const pttStart = useCallback(() => {
+    const r = res.current;
+    if (!r.pushToTalk || r.pttHeld || !r.ws || r.ws.readyState !== WebSocket.OPEN) return;
+    if (r.player?.active) {
+      r.player.stop();
+      if (r.speakingItemId) {
+        const id = r.speakingItemId;
+        r.interruptedItems.add(id);
+        upsertLine(id, (prev) => ({ ...(prev ?? { id, role: "assistant", text: "" }), interrupted: true, final: true }));
+      }
+      send({ type: "response.cancel" });
+    }
+    r.speakingItemId = undefined;
+    r.greetingPlaying = false;
+    send({ type: "input_audio_buffer.clear" });
+    r.pttHeld = true;
+    setUserSpeaking(true);
+  }, [send, upsertLine]);
+
+  /** Push to talk: end the turn and ask for the reply right away. */
+  const pttEnd = useCallback(() => {
+    const r = res.current;
+    if (!r.pttHeld) return;
+    r.pttHeld = false;
+    setUserSpeaking(false);
+    // Let the last audio chunk (up to 40 ms) flush before committing.
+    setTimeout(() => {
+      send({ type: "input_audio_buffer.commit" });
+      setThinking(true);
+      if (r.language === "auto") {
+        // Reply once we know which language they used; never wait more than 1.5 s.
+        r.replyAfterTranscript = true;
+        setTimeout(() => {
+          if (!r.replyAfterTranscript) return;
+          r.replyAfterTranscript = false;
+          send({ type: "response.create" });
+        }, 1500);
+      } else {
+        send({ type: "response.create" });
+      }
+    }, 60);
+  }, [send]);
 
   /** Called when the avatar greeting clip ends (or fails), un-muting the mic. */
   const greetingFinished = useCallback(() => {
@@ -519,5 +656,5 @@ export function useRealtimeCall({ onToolExecuted, onPersonaChange }: Options = {
     };
   }, [teardown]);
 
-  return { status, error, lines, aiSpeaking, userSpeaking, thinking, start, hangUp, sendText, greetingFinished };
+  return { status, error, lines, aiSpeaking, userSpeaking, thinking, start, hangUp, sendText, greetingFinished, pttStart, pttEnd };
 }

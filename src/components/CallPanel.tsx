@@ -16,6 +16,9 @@ interface Props {
   onSend: (text: string) => void;
   /** Face shown beside the captions (video-call layout). */
   avatar?: ReactNode;
+  pushToTalk: boolean;
+  onTalkStart: () => void;
+  onTalkEnd: () => void;
 }
 
 function liveHint(aiSpeaking: boolean, userSpeaking: boolean, thinking: boolean): string {
@@ -45,6 +48,9 @@ export function CallPanel({
   onHangUp,
   onSend,
   avatar,
+  pushToTalk,
+  onTalkStart,
+  onTalkEnd,
 }: Props) {
   const [draft, setDraft] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
@@ -53,6 +59,28 @@ export function CallPanel({
   }, [lines]);
 
   const inCall = status === "connecting" || status === "live";
+
+  // Space bar = hold to talk (ignored while typing in the message box).
+  useEffect(() => {
+    if (!pushToTalk || status !== "live") return;
+    const typing = (e: KeyboardEvent) => (e.target as HTMLElement | null)?.tagName === "INPUT";
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat || typing(e)) return;
+      e.preventDefault();
+      onTalkStart();
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || typing(e)) return;
+      e.preventDefault();
+      onTalkEnd();
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, [pushToTalk, status, onTalkStart, onTalkEnd]);
 
   return (
     <section className="flex h-full flex-col rounded-3xl bg-[var(--card)] p-5">
@@ -85,7 +113,9 @@ export function CallPanel({
           <span
             className={`h-2.5 w-2.5 rounded-full ${userSpeaking ? "bg-[#7dd3a8] animate-pulse" : aiSpeaking ? "bg-[var(--accent)] animate-pulse" : "bg-[#7dd3a8]"}`}
           />
-          {liveHint(aiSpeaking, userSpeaking, thinking)}
+          {pushToTalk && !userSpeaking && !aiSpeaking && !thinking
+            ? "Hold the button (or Space) while you talk, then let go."
+            : liveHint(aiSpeaking, userSpeaking, thinking)}
         </p>
       )}
 
@@ -123,6 +153,23 @@ export function CallPanel({
         )}
       </div>
       </div>
+
+      {status === "live" && pushToTalk && (
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            onTalkStart();
+          }}
+          onPointerUp={onTalkEnd}
+          onPointerCancel={onTalkEnd}
+          className={`mt-4 w-full select-none rounded-2xl py-4 text-lg font-semibold transition ${
+            userSpeaking ? "bg-[#7dd3a8] text-[#10261b]" : "bg-[var(--card-strong)] text-[var(--foreground)] hover:brightness-125"
+          }`}
+        >
+          {userSpeaking ? "Listening... let go to send" : "Hold to talk"}
+        </button>
+      )}
 
       {status === "live" && (
         <form

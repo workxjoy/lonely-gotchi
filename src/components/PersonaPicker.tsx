@@ -25,7 +25,6 @@ export function PersonaPicker({ selected, disabled, onSelect }: Props) {
           >
             <div className="font-semibold">{p.name}</div>
             <div className="text-sm text-[var(--muted)]">{p.tagline}</div>
-            <div className="mt-1 text-xs text-[var(--accent)]">Voice: {p.voiceName}</div>
           </button>
         );
       })}

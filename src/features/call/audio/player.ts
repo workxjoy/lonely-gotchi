@@ -11,6 +11,11 @@ export class PcmPlayer {
   ) {}
 
   get active(): boolean {
+    if (this.sources.size > 0 && this.ctx.currentTime > this.nextStart + 0.25) {
+      // onended can be missed (e.g. the context was paused); a stale "speaking" state must not mute the mic.
+      this.sources.clear();
+      this.onActiveChange(false);
+    }
     return this.sources.size > 0;
   }
 
