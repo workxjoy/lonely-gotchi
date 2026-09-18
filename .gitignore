@@ -48,9 +48,8 @@ next-env.d.ts
 !.env.example
 
 # Personal avatar faces (teammate, family) and their clips stay local
-public/avatars/loving-partner*
-public/avatars/fairy-godmother*
-public/avatars/sassy-best-friend*
+# Unused Chinese greeting clips stay local
+public/avatars/*-zh.mp4
 
 # Local machine / account config (IDs and agent hooks stay off GitHub)
 .idea/
