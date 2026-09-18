@@ -20,10 +20,8 @@ type SpokenLang = "en" | "zh" | "hi";
  * so one mis-transcribed phrase can't flip the language (STT sometimes hears English as Chinese).
  */
 function detectLang(text: string): { lang: SpokenLang; strong: boolean } | undefined {
-  const cjk = text.match(/[\u4e00-\u9fff]/g)?.length ?? 0;
   const devanagari = text.match(/[\u0900-\u097f]/g)?.length ?? 0;
   const latinWords = text.match(/[a-z]{2,}/gi)?.length ?? 0;
-  if (cjk > 0 && latinWords === 0) return { lang: "zh", strong: cjk >= 8 };
   if (devanagari > 0 && latinWords === 0) return { lang: "hi", strong: devanagari >= 12 };
   if (latinWords >= 2) return { lang: "en", strong: true };
   return undefined;

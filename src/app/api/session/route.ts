@@ -69,8 +69,8 @@ export async function POST(request: Request) {
             turn_detection: parsed.data.pushToTalk
               ? null
               : { type: "server_vad", threshold: 0.6, prefix_padding_ms: 800, silence_duration_ms: 700 },
-            transcription:
-              language === "hi" || language === "zh" ? { model: "higgs-stt-3.1", language } : { model: "higgs-stt-3.1" },
+            // English hint unless Hindi is chosen: without it, quiet audio was transcribed as Chinese.
+            transcription: { model: "higgs-stt-3.1", language: language === "hi" ? "hi" : "en" },
             noise_reduction: { type: "far_field" }, // laptop mics; near_field stripped distant voices
           },
           output: {

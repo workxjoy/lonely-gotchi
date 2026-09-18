@@ -11,7 +11,7 @@ export function LanguagePicker({ value, disabled, onChange }: Props) {
   return (
     <div className="w-full">
       <div className="mb-1 text-xs uppercase tracking-widest text-[var(--muted)]">Language</div>
-      <div className="grid grid-cols-4 gap-1 rounded-2xl bg-[var(--card-strong)] p-1" role="radiogroup" aria-label="Conversation language">
+      <div className="grid grid-cols-3 gap-1 rounded-2xl bg-[var(--card-strong)] p-1" role="radiogroup" aria-label="Conversation language">
         {LANGUAGES.map((l) => (
           <button
             key={l.id}
